@@ -1,4 +1,4 @@
-# mel_spec_music_generation
+# Auto Music Generation
 
 ### About the Project
 
