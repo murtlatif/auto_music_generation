@@ -1,13 +1,22 @@
 import librosa
 import numpy as np
+import torch
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import random_split
+from torch import nn, optim
 
 from config import Config
 from constants import note_map
+from data.number_loader import NumberLoader
 from preprocess_music import get_dataset, get_label, spectrogram
 from util.song_file import get_and_verify_song_path_from_config
 
+from train.trainer import train
+from train.evaluator import validation, test
+from model.transformer.transformer_baseline import TransformerModel
 
-def main():
+
+def spectro_main():
     song_path = get_and_verify_song_path_from_config()
     model_state_path = Config.args.load_model_path
 
@@ -24,5 +33,46 @@ def main():
     print(label)
 
 
+def model_main():
+    torch.manual_seed(10)
+
+    voc_size = 10000
+    input_seq = np.arange(2, voc_size, 2)
+    target_seq = np.arange(3, voc_size, 2)
+
+    batch_size = 128
+    epochs = 30
+    dataset = NumberLoader(input_seq, target_seq)
+    train_len = int(len(dataset) * 0.9)
+    validation_len = len(dataset) - train_len
+
+    train_set, validation_set = random_split(dataset, [train_len, validation_len])
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=1)
+    validation_loader = DataLoader(validation_set, batch_size=batch_size, shuffle=True, num_workers=1)
+
+    hidden = 128
+    nlayers = 2
+    model = TransformerModel(voc_size, voc_size, hidden=hidden, nlayers=nlayers)
+    optimizer = optim.Adam(model.parameters())
+
+    criterion = nn.CrossEntropyLoss()
+    best_loss = 100
+
+    for i in range(epochs):
+        epoch_loss = train(model, criterion, optimizer, train_loader)
+        epoch_loss_val = validation(model, criterion, validation_loader)
+        # scheduler.step()
+        print("epoch: {} train loss: {}".format(i, epoch_loss))
+        print("epoch: {} val loss: {}".format(i, epoch_loss_val))
+        if epoch_loss_val < best_loss:
+            best_loss = epoch_loss_val
+            model_name = "model/cache/transformer_{0:.5f}.pt".format(epoch_loss_val)
+            torch.save(model.state_dict(), model_name)
+    return model_name
+
+
 if __name__ == '__main__':
-    main()
+    model_name = model_main()
+    model = TransformerModel(10000, 10000, hidden=128, nlayers=2)
+    model.load_state_dict(torch.load(model_name))
+    test(model, test_times=10)
