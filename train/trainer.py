@@ -11,7 +11,9 @@ def train(model: nn.Module, criterion: nn.CrossEntropyLoss, optimizer: optim.Opt
         src, tgt = batch
         src, tgt = src.transpose(1, 0), tgt.transpose(1, 0)
         optimizer.zero_grad()
+        # print(src, tgt)
         output = model(src, tgt[:-1, :])
+        # output = model(src, tgt)
         n = output.shape[-1]
         loss = criterion(output.reshape(-1, n), tgt[1:, :].reshape(-1))
         loss.backward()

@@ -1,5 +1,6 @@
 appdirs==1.4.4
 audioread==2.1.9
+autopep8==1.6.0
 backcall==0.2.0
 certifi==2021.5.30
 cffi==1.14.6
@@ -33,6 +34,7 @@ pickleshare==0.7.5
 Pillow==8.3.2
 pooch==1.5.1
 prompt-toolkit==3.0.20
+pycodestyle==2.8.0
 pycparser==2.20
 Pygments==2.10.0
 pyparsing==2.4.7
@@ -49,6 +51,7 @@ six==1.16.0
 sklearn==0.0
 SoundFile==0.10.3.post1
 threadpoolctl==2.2.0
+toml==0.10.2
 torch==1.9.1
 torchaudio==0.9.1
 torchvision==0.10.1

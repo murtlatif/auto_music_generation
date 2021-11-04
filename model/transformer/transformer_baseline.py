@@ -18,6 +18,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
+        # print(x.shape)
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
 
@@ -25,7 +26,7 @@ class PositionalEncoding(nn.Module):
 class TransformerModel(nn.Module):
     def __init__(self, intoken, outtoken, hidden, nlayers=3, dropout=0.1):
         super(TransformerModel, self).__init__()
-        nhead = hidden // 64
+        nhead = 2
 
         self.encoder = nn.Embedding(intoken, hidden)
         self.pos_encoder = PositionalEncoding(hidden, dropout)
@@ -59,10 +60,14 @@ class TransformerModel(nn.Module):
         src_pad_mask = self.make_len_mask(src)
         trg_pad_mask = self.make_len_mask(trg)
 
+        print('before enc src:', src)
         src = self.encoder(src)
+        # print('after enc src:', src.shape)
         src = self.pos_encoder(src)
 
+        # print('before enc trg:', trg.shape)
         trg = self.decoder(trg)
+        # print('after enc trg:', trg.shape)
         trg = self.pos_decoder(trg)
         output = self.transformer(src, trg, tgt_mask=self.trg_mask)
         # output = self.transformer(src, trg, src_mask=self.src_mask, tgt_mask=self.trg_mask,

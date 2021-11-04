@@ -30,3 +30,4 @@ class ArgparseConfig:
         parser.add_argument(
             '-l', '--load-model', dest='load_model_path', help='File path to a .pt model')
         parser.add_argument('--song', help='Song file to use')
+        parser.add_argument('--name', type=str, help='Name of model; used when saving model data')
