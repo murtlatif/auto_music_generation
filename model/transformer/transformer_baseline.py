@@ -2,78 +2,82 @@ import math
 
 import torch
 from torch import nn
+from util.mask import generate_padding_mask, generate_square_subsequent_mask
 
-
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=100):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        # print(x.shape)
-        x = x + self.pe[:x.size(0), :]
-        return self.dropout(x)
+from .positional_encoder import PositionalEncoder
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, intoken, outtoken, hidden, nlayers=3, dropout=0.1):
-        super(TransformerModel, self).__init__()
-        nhead = 2
+    """
+    Transformer Model that uses a positional encoder. Encodes the
+    input and decodes the output using an Embedding module.
 
-        self.encoder = nn.Embedding(intoken, hidden)
-        self.pos_encoder = PositionalEncoding(hidden, dropout)
+    Args:
+        input_dict_size (int): Size of input embedding dictionary
+        output_dict_size (int): Size of output embedding dictionary
+        hidden_dim (int): The number of expected features in the encoder/decoder inputs.
+        num_layers (int, optional): The number of sub-encoder-layers in the encoder/decoder.
+        Defaults to 3.
+        num_heads (int, optional): The number of heads in the multiheadattention models.
+        Defaults to 2.
+        dropout (float, optional): The dropout rate. Defaults to 0.1.
+    """
 
-        self.decoder = nn.Embedding(outtoken, hidden)
-        self.pos_decoder = PositionalEncoding(hidden, dropout)
+    def __init__(self, input_dict_size: int, output_dict_size: int, hidden_dim: int, num_layers: int = 3, num_heads: int = 2, dropout: float = 0.1):
+        super().__init__()
 
-        self.inscale = math.sqrt(intoken)
-        self.outscale = math.sqrt(outtoken)
+        # Define the encoders / decoders
+        self.encoder = nn.Embedding(input_dict_size, hidden_dim)
+        self.pos_encoder = PositionalEncoder(hidden_dim, dropout=dropout)
 
-        self.transformer = nn.Transformer(d_model=hidden, nhead=nhead, num_encoder_layers=nlayers,
-                                          num_decoder_layers=nlayers, dim_feedforward=hidden, dropout=dropout)
-        self.fc_out = nn.Linear(hidden, outtoken)
+        self.decoder = nn.Embedding(output_dict_size, hidden_dim)
+        self.pos_decoder = PositionalEncoder(hidden_dim, dropout)
 
-        self.src_mask = None
-        self.trg_mask = None
+        self.transformer = nn.Transformer(
+            d_model=hidden_dim,
+            nhead=num_heads,
+            num_encoder_layers=num_layers,
+            num_decoder_layers=num_layers,
+            dim_feedforward=hidden_dim,
+            dropout=dropout
+        )
+
+        # Create the fully connected layer to map the embedded features
+        # to the output values
+        self.fc_out = nn.Linear(hidden_dim, output_dict_size)
+
+        # Mask definitions
+        self.source_mask = None
+        self.target_mask = None
         self.memory_mask = None
 
-    def generate_square_subsequent_mask(self, sz):
-        mask = torch.triu(torch.ones(sz, sz), 1)
-        mask = mask.masked_fill(mask == 1, float('-inf'))
-        return mask
+    def forward(self, source, target):
+        # Create a mask for the target
+        if self.target_mask is None or self.target_mask.size(0) != len(target):
+            self.target_mask = generate_square_subsequent_mask(
+                len(target)).to(target.device)
 
-    def make_len_mask(self, inp):
-        return (inp == 0).transpose(0, 1)
+        # Generate the padding masks to ignore the 0s in the source/target
+        source_padding_mask = generate_padding_mask(source)
+        target_padding_mask = generate_padding_mask(target)
 
-    def forward(self, src, trg):
-        if self.trg_mask is None or self.trg_mask.size(0) != len(trg):
-            self.trg_mask = self.generate_square_subsequent_mask(len(trg)).to(trg.device)
+        # Encode the source and target sequences
+        source = self.encoder(source)
+        source = self.pos_encoder(source)
 
-        src_pad_mask = self.make_len_mask(src)
-        trg_pad_mask = self.make_len_mask(trg)
+        target = self.decoder(target)
+        target = self.pos_decoder(target)
 
-        print('before enc src:', src)
-        src = self.encoder(src)
-        # print('after enc src:', src.shape)
-        src = self.pos_encoder(src)
+        # Generate the output sequence
+        output = self.transformer(source,
+                                  target,
+                                  src_mask=self.source_mask,
+                                  tgt_mask=self.target_mask,
+                                  memory_mask=self.memory_mask,
+                                  src_key_padding_mask=source_padding_mask,
+                                  tgt_key_padding_mask=target_padding_mask,
+                                  memory_key_padding_mask=source_padding_mask)
 
-        # print('before enc trg:', trg.shape)
-        trg = self.decoder(trg)
-        # print('after enc trg:', trg.shape)
-        trg = self.pos_decoder(trg)
-        output = self.transformer(src, trg, tgt_mask=self.trg_mask)
-        # output = self.transformer(src, trg, src_mask=self.src_mask, tgt_mask=self.trg_mask,
-        #                           memory_mask=self.memory_mask,
-        #                           src_key_padding_mask=src_pad_mask, tgt_key_padding_mask=trg_pad_mask,
-        #                           memory_key_padding_mask=src_pad_mask)
         output = self.fc_out(output)
 
         return output
