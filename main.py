@@ -9,10 +9,11 @@ from config import Config
 from constants import note_map
 # from data.number_loader import NumberLoader
 from data.notes.simple_notes_dataset import SimpleNotes
+from util.model_file_manager import load_model
 # from preprocess_music import get_dataset, get_label, spectrogram
 from util.song_file import get_and_verify_song_path_from_config
 
-from train.trainer import train
+from train.trainer import train_one_epoch_transformer
 from train.evaluator import validation, test
 from model.transformer.transformer_baseline import TransformerModel
 from constants import OLD_MCDONALD_NOTES
@@ -34,37 +35,41 @@ from constants import OLD_MCDONALD_NOTES
 #     print(label)
 
 
-def model_main():
-    torch.manual_seed(10)
+def get_transformer_model(hidden_dim: int = 4, num_layers: int = 2):
+    dict_size = 8
+    transformer_model = TransformerModel(
+        input_dict_size=dict_size, output_dict_size=dict_size, hidden_dim=hidden_dim, num_layers=num_layers)
 
-    note_vocab = "ABCDEFG"
-    voc_size = 8
-    # input_seq = np.arange(2, voc_size, 2)
-    # target_seq = np.arange(3, voc_size, 2)
+    return transformer_model
 
-    batch_size = 4
-    epochs = 10
-    # dataset = NumberLoader(input_seq, target_seq)
-    old_mcd = [note_map.index(note) + 1 for note in OLD_MCDONALD_NOTES]
-    dataset = SimpleNotes(old_mcd)
 
-    train_len = int(len(dataset) * 0.9)
+def train_transformer_on_notes(model: TransformerModel, epochs: int = 10):
+    # Initialize parameters
+    batch_size = 8
+    train_split_percentage = 0.9
+
+    # Initialize dataset
+    old_mcd_indices = [note_map.index(note) + 1 for note in OLD_MCDONALD_NOTES]
+    dataset = SimpleNotes(old_mcd_indices)
+
+    train_len = int(len(dataset) * train_split_percentage)
     validation_len = len(dataset) - train_len
 
-    train_set, validation_set = random_split(dataset, [train_len, validation_len])
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=1)
-    validation_loader = DataLoader(validation_set, batch_size=batch_size, shuffle=True, num_workers=1)
+    train_set, validation_set = random_split(
+        dataset, [train_len, validation_len])
+    train_loader = DataLoader(
+        train_set, batch_size=batch_size, shuffle=True, num_workers=1)
+    validation_loader = DataLoader(
+        validation_set, batch_size=batch_size, shuffle=True, num_workers=1)
 
-    hidden = 4
-    nlayers = 2
-    model = TransformerModel(voc_size, voc_size, hidden=hidden, nlayers=nlayers)
     optimizer = optim.Adam(model.parameters())
-
     criterion = nn.CrossEntropyLoss()
     best_loss = 100
 
     for i in range(epochs):
-        epoch_loss = train(model, criterion, optimizer, train_loader)
+        epoch_loss = train_one_epoch_transformer(
+            model, criterion, optimizer, train_loader)
+
         epoch_loss_val = validation(model, criterion, validation_loader)
         # scheduler.step()
         print("epoch: {} train loss: {}".format(i, epoch_loss))
@@ -77,8 +82,15 @@ def model_main():
 
 
 if __name__ == '__main__':
-    model_name = model_main()
-    # model_name = 'model/cache/transformer_note_transformer_0.46841.pt'
-    model = TransformerModel(8, 8, hidden=4, nlayers=2)
-    model.load_state_dict(torch.load(model_name))
-    test(model, test_times=10)
+    torch.manual_seed(10)
+
+    # Train the model
+    model = get_transformer_model()
+    model_state_file = train_transformer_on_notes(model)
+
+    # Load the model for testing
+    model = get_transformer_model()
+    load_model(model_state_file, model)
+
+    # Evaluate the model
+    test(model, test_times=10, max_len=4)

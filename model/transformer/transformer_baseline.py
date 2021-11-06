@@ -27,10 +27,11 @@ class TransformerModel(nn.Module):
         super().__init__()
 
         # Define the encoders / decoders
-        self.encoder = nn.Embedding(input_dict_size, hidden_dim)
+        self.encoder = nn.Embedding(input_dict_size, hidden_dim, padding_idx=0)
         self.pos_encoder = PositionalEncoder(hidden_dim, dropout=dropout)
 
-        self.decoder = nn.Embedding(output_dict_size, hidden_dim)
+        self.decoder = nn.Embedding(
+            output_dict_size, hidden_dim, padding_idx=0)
         self.pos_decoder = PositionalEncoder(hidden_dim, dropout)
 
         self.transformer = nn.Transformer(
@@ -61,12 +62,25 @@ class TransformerModel(nn.Module):
         source_padding_mask = generate_padding_mask(source)
         target_padding_mask = generate_padding_mask(target)
 
+        print(
+            f'Source ({source.shape}): {source}, Target ({target.shape}: {target}')
+
+        print(
+            f'SrcPaddingMask ({source_padding_mask.shape}): {source_padding_mask}, TgtPaddingMask ({target_padding_mask.shape}): {target_padding_mask}')
+
         # Encode the source and target sequences
         source = self.encoder(source)
+        print(f'SrcEncoded ({source.shape}): {source}')
         source = self.pos_encoder(source)
+        print(f'SrcEncodedPos ({source.shape}): {source}')
 
         target = self.decoder(target)
+        print(f'TgtEncoded ({target.shape}): {target}')
         target = self.pos_decoder(target)
+        print(f'TgtEncodedPos ({target.shape}): {target}')
+
+        print(
+            f'SrcMask: {self.source_mask}, TgtMask: {self.target_mask}')
 
         # Generate the output sequence
         output = self.transformer(source,
