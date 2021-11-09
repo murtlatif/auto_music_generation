@@ -1,23 +1,35 @@
-from dotenv import load_dotenv
-import os
+from dotenv import dotenv_values
 
 
 class DotenvConfig:
-    _is_dotenv_read = False
+    """Configuration for environment variables"""
+    _config = None
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.config
+
+    def __getitem__(self, key: str) -> str:
+        if key not in self.config:
+            raise KeyError(f'DotenvConfig has no item \'{key}\'')
+        return self.config[key]
+
+    def __getattr__(self, name: str) -> str:
+        if name not in self.config:
+            raise AttributeError(f'DotenvConfig has no attribute \'{name}\'.')
+
+        return self.config[name]
+
+    def __repr__(self) -> str:
+        return str(self.config)
 
     @property
-    def is_dotenv_read(self):
-        return self._is_dotenv_read
+    def config(self):
+        if self._config is None:
+            self._config = {
+                **dotenv_values()
+            }
+            self._validate_args()
+        return self._config
 
-    def fetch(self, env_key: str):
-        if not self.is_dotenv_read:
-            self._read_dotenv()
-        return os.environ.get(env_key)
-
-    def _read_dotenv(self):
-        assert not self.is_dotenv_read, '.env file has already been read'
-
-        loaded_successfully = load_dotenv()
-        assert loaded_successfully, 'Failed to load .env'
-
-        self._dotenv_loaded = True
+    def _validate_args(self):
+        pass

@@ -1,22 +1,20 @@
 import librosa
 import numpy as np
 import torch
+from torch import nn, optim
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import random_split
-from torch import nn, optim
 
 from config import Config
-from constants import note_map
+from constants import OLD_MCDONALD_NOTES, note_map
 # from data.number_loader import NumberLoader
 from data.notes.simple_notes_dataset import SimpleNotes
+from model.transformer.transformer_baseline import TransformerModel
+from train.evaluator import validation
+from train.trainer import train_one_epoch_transformer
 from util.model_file_manager import load_model
 # from preprocess_music import get_dataset, get_label, spectrogram
 from util.song_file import get_and_verify_song_path_from_config
-
-from train.trainer import train_one_epoch_transformer
-from train.evaluator import validation, test
-from model.transformer.transformer_baseline import TransformerModel
-from constants import OLD_MCDONALD_NOTES
 
 # def spectro_main():
 #     song_path = get_and_verify_song_path_from_config()
@@ -35,7 +33,7 @@ from constants import OLD_MCDONALD_NOTES
 #     print(label)
 
 
-def get_transformer_model(hidden_dim: int = 4, num_layers: int = 2):
+def get_transformer_model(hidden_dim: int = 2, num_layers: int = 2):
     dict_size = 8
     transformer_model = TransformerModel(
         input_dict_size=dict_size, output_dict_size=dict_size, hidden_dim=hidden_dim, num_layers=num_layers)
@@ -66,31 +64,49 @@ def train_transformer_on_notes(model: TransformerModel, epochs: int = 10):
     criterion = nn.CrossEntropyLoss()
     best_loss = 100
 
-    for i in range(epochs):
-        epoch_loss = train_one_epoch_transformer(
-            model, criterion, optimizer, train_loader)
+    try:
+        for i in range(epochs):
+            epoch_loss = train_one_epoch_transformer(
+                model, criterion, optimizer, train_loader)
 
-        epoch_loss_val = validation(model, criterion, validation_loader)
-        # scheduler.step()
-        print("epoch: {} train loss: {}".format(i, epoch_loss))
-        print("epoch: {} val loss: {}".format(i, epoch_loss_val))
-        if epoch_loss_val < best_loss:
-            best_loss = epoch_loss_val
-            model_name = f"model/cache/transformer_{Config.args.name}_{epoch_loss_val:.5f}.pt"
-            torch.save(model.state_dict(), model_name)
+            epoch_loss_val = validation(model, criterion, validation_loader)
+            # scheduler.step()
+            print("epoch: {} train loss: {}".format(i, epoch_loss))
+            print("epoch: {} val loss: {}".format(i, epoch_loss_val))
+            if epoch_loss_val < best_loss:
+                best_loss = epoch_loss_val
+                model_name = f"model/cache/transformer_{Config.args.name}_{epoch_loss_val:.5f}.pt"
+                torch.save(model.state_dict(), model_name)
+
+    except KeyboardInterrupt:
+        print('Aborting training...')
+        print('Latest model state file saved:', model_name)
+
     return model_name
 
 
 if __name__ == '__main__':
-    torch.manual_seed(10)
 
-    # Train the model
-    model = get_transformer_model()
-    model_state_file = train_transformer_on_notes(model)
+    print('Running main.py with arguments:', Config.args)
 
-    # Load the model for testing
+    torch.manual_seed(Config.args.seed)
+
+    # Get the initial model
     model = get_transformer_model()
-    load_model(model_state_file, model)
+
+    # Load model state from file if state is given
+    load_model_path = Config.args.load_model_path
+    if load_model_path:
+        # Load the model for testing
+        load_model(load_model_path, model)
+
+    # Train the model if the train flag is present
+    if Config.args.train:
+        model_state_file = train_transformer_on_notes(model, epochs=Config.args.epochs)
+
+    # # Load the model for testing
+    # model = get_transformer_model()
+    # load_model(model_state_file, model)
 
     # Evaluate the model
-    test(model, test_times=10, max_len=4)
+    # test(model, test_times=10, max_len=4)

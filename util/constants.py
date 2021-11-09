@@ -3,6 +3,8 @@ class DotenvKeys:
     MUSIC_DIR = 'MUSIC_DIR'
 
 
+PAD_TOKEN = 0
+
 note_map = ["A", "B", "C", "D", "E", "F", "G"]
 
 OLD_MCDONALD_NOTES = "CCCGAAGGEEDDCCCGCCCGAAGGEEDDCCCG"
