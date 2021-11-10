@@ -2,11 +2,12 @@ import math
 
 import torch
 from torch import nn, Tensor
-from util.constants import PAD_TOKEN
+from util.constants import MUSIC_NOTES_LIST, PAD_TOKEN
 
 from util.device import get_device
 
 from .positional_encoder import PositionalEncoder
+from .dummy_decoder import DummyDecoder
 
 
 class TransformerModel(nn.Module):
@@ -43,7 +44,9 @@ class TransformerModel(nn.Module):
         super().__init__()
 
         self.embedding = nn.Embedding(input_dict_size, hidden_dim, padding_idx=PAD_TOKEN)
-        self.pos_encoder = PositionalEncoder(hidden_dim, dropout=dropout)
+        self.positional_encoder = PositionalEncoder(hidden_dim, dropout=dropout)
+
+        dummy_decoder = DummyDecoder()
 
         self.transformer = nn.Transformer(
             d_model=hidden_dim,
@@ -51,7 +54,8 @@ class TransformerModel(nn.Module):
             num_encoder_layers=num_layers,
             num_decoder_layers=num_layers,
             dim_feedforward=feedforward_hidden_dim,
-            dropout=dropout
+            dropout=dropout,
+            custom_decoder=dummy_decoder,
         )
 
         # Fully connect and softmax the output
@@ -64,10 +68,9 @@ class TransformerModel(nn.Module):
         another sequence.
 
         Args:
-            source: Input sequence into the encoder, with shape (S, N, E)
-            target: Target sequence into the decoder, with shape (T, N, E)
+            source: Input sequence into the encoder, with shape (N, S, E)
 
-            Where S is the length of the source sequence, N is the batch size,
+            Where N is the batch size, S is the length of the source sequence,
             and E is the number of features.
 
         Returns:
@@ -75,49 +78,42 @@ class TransformerModel(nn.Module):
         """
 
         # Create a mask for the target
-        target_mask = self.transformer.generate_square_subsequent_mask(source.shape[1]).to(get_device())
+        mask = self.transformer.generate_square_subsequent_mask(source.shape[1]).to(get_device())
 
-        embedded_sequence: Tensor = self.embedding(source)
-        
-        # Generate the padding masks to ignore the 0s in the source/target
-        # source_padding_mask = generate_padding_mask(source)
-        # target_padding_mask = generate_padding_mask(target)
+        # Embedded sequence has shape (N, S, E). Permute to (S, N, E).
+        embedded_sequence = self.embedding(source).permute(1, 0, 2)
 
-        # print(
-        #     f'Source ({source.shape}): {source}, Target ({target.shape}: {target}')
+        # Encode the position into the sequence
+        encoded_sequence = self.positional_encoder(embedded_sequence)
 
-        # print(
-        # f'SrcPaddingMask ({source_padding_mask.shape}): {source_padding_mask}, TgtPaddingMask ({target_padding_mask.shape}): {target_padding_mask}')
+        # Get the output sequence
+        embedded_output = self.transformer(src=encoded_sequence, tgt=encoded_sequence, src_mask=mask)
 
-        # Encode the source and target sequences
-        source = self.encoder(source)
-        # print(f'SrcEncoded ({source.shape}): {source}')
-        source = self.pos_encoder(source)
-        # print(f'SrcEncodedPos ({source.shape}): {source}')
+        # Repermute the output back to (N, S, E)
+        embedded_output = embedded_output.permute(1, 0, 2)
 
-        target = self.encoder(target)
-        # print(f'TgtEncoded ({target.shape}): {target}')
-        target = self.pos_encoder(target)
-        # print(f'TgtEncodedPos ({target.shape}): {target}')
-
-        # print(
-        #     f'SrcMask: {self.source_mask}, TgtMask: {self.target_mask}')
-
-        # Generate the output sequence
-        output = self.transformer(source,
-                                  target,
-                                  src_mask=self.source_mask,
-                                  tgt_mask=self.target_mask,
-                                  memory_mask=self.memory_mask,
-                                  #   src_key_padding_mask=source_padding_mask,
-                                  #   tgt_key_padding_mask=target_padding_mask,
-                                  #   memory_key_padding_mask=source_padding_mask)
-                                  )
-
-        print('OUT (', output.shape, ')')
-
+        output = self.fc_out(embedded_output)
         return output
 
-        output = self.fc_out(output)
+    @staticmethod
+    def process_output(output: Tensor):
+        """
+        Processes the output tensor that this transformer produces into an
+        array of notes.
 
-        return output
+        Args:
+            output (Tensor): The output tensor to process
+
+        Returns:
+            list[list[str]]: The processed outputs
+        """
+        # Take the argmax across the features. Result is (N, S)
+        argmaxed_output = output.argmax(axis=-1)
+
+        processed_output = []
+
+        for sequence in argmaxed_output:
+            processed_sequence = [MUSIC_NOTES_LIST[note_idx] for note_idx in sequence]
+            processed_output.append(processed_sequence)
+
+        return processed_output

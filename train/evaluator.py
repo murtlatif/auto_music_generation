@@ -1,23 +1,44 @@
-from data.notes.simple_notes_dataset import SimpleNotes
+from data.dataset.music_dataset import MusicDataset
 from model.transformer.transformer_baseline import TransformerModel
-from torch import LongTensor, no_grad, argmax
+from torch import LongTensor, argmax, no_grad
+from torch.nn.modules.loss import _Loss
+from torch.utils.data.dataloader import DataLoader
 
 
-def validation(model, criterion, loader):
+def validation(model: TransformerModel, criterion: _Loss, loader: DataLoader):
+    """
+    Performs validation on the model.
+
+    Args:
+        model (TransformerModel): The transformer model to run validation for
+        criterion (_Loss): The loss function to evaluate based on
+        loader (DataLoader): The data loader
+
+    Returns:
+        [type]: [description]
+    """
     model.eval()
     epoch_loss = 0
+
     with no_grad():
-        for i, batch in enumerate(loader):
-            src, tgt = batch
-            src, tgt = src.transpose(1, 0), tgt.transpose(1, 0)
-            output = model(src, tgt[:-1, :])
-            n = output.shape[-1]
-            loss = criterion(output.reshape(-1, n), tgt[1:, :].reshape(-1))
+        for batch_idx, (source, target) in enumerate(loader):
+            # Omit the current target element when passing into the transformer
+            output = model(source)
+
+            num_features = output.shape[-1]
+
+            # Flatten the input and output to compute loss
+            flat_labels = target.reshape(-1)
+            flat_output = output.reshape(-1, num_features)
+
+            # Accumulate loss
+            loss = criterion(flat_output, flat_labels)
             epoch_loss += loss.item()
+
     return epoch_loss / len(loader)
 
 
-def evaluate_note_sequence(model: TransformerModel, input_notes: str):
+def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[list[str]]:
     """
     Evaluates and returns the output sequence given a set of input notes.
 
@@ -26,22 +47,16 @@ def evaluate_note_sequence(model: TransformerModel, input_notes: str):
         input_notes (str): The input sequence to evaluate from
 
     Returns:
-        [type]: [description]
+        list[list[str]]: The processed outputs
     """
-    encoded_notes = SimpleNotes.encode_notes(input_notes)
+    encoded_notes = MusicDataset.encode_notes(input_notes).unsqueeze(0)
 
     model.eval()
     with no_grad():
+        output = model(encoded_notes)
+        processed_output = TransformerModel.process_output(output)
 
-        source = LongTensor([encoded_notes]).transpose(1, 0)
-        target = LongTensor([[0] + encoded_notes]).transpose(1, 0)
-
-        output = model(source, target[:-1, :])
-
-        # Get the maximally ranked note
-        # output_indices = argmax(output, axis=2)
-
-    return output
+    return processed_output
 
 
 # def test(model, max_len=3, test_times=1):

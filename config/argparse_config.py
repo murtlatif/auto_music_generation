@@ -37,7 +37,8 @@ class ArgparseConfig:
     def _validate_args(self):
         # If training the model, the number of epochs must be positive
         if self.args.train:
-            assert self.args.epochs >= 0, "Must train on a valid number of epochs"
+            assert self.args.epochs > 0, "Must train on at least 1 epoch"
+            assert self.args.batch_size > 0, "Must have a batch_size value > 0"
 
     def _add_arguments_to_parser(self, parser: ArgumentParser):
         parser.add_argument(
@@ -47,3 +48,6 @@ class ArgparseConfig:
         parser.add_argument('-t', '--train', action='store_true', help='Use this flag to train the model')
         parser.add_argument('-e', '--epochs', type=int, default=10, help='The number of epochs to train the model')
         parser.add_argument('--seed', type=int, default=29, help='The random seed to use')
+        parser.add_argument('-i', '--interactive', action='store_true',
+                            help='Interactive mode; will prompt for evaluation inputs')
+        parser.add_argument('-b', '--batch-size', type=int, default=32, help='Batch size for training')

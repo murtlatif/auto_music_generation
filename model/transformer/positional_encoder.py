@@ -1,7 +1,7 @@
 import math
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 
 
 class PositionalEncoder(nn.Module):
@@ -52,7 +52,7 @@ class PositionalEncoder(nn.Module):
         # Store the positional encoding as part of the model's state
         self.register_buffer('positional_encoding', positional_encoding)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         # Get the positional encoding up to the length of the input
         input_positionsal_encoding = self.positional_encoding[:x.size(0), :]
 
