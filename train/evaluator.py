@@ -1,44 +1,10 @@
-from data.dataset.music_dataset import MusicDataset
+from data.dataset.music_token import MusicToken
 from model.transformer.transformer_baseline import TransformerModel
-from torch import LongTensor, argmax, no_grad
-from torch.nn.modules.loss import _Loss
+from torch import nn, no_grad
 from torch.utils.data.dataloader import DataLoader
 
 
-def validation(model: TransformerModel, criterion: _Loss, loader: DataLoader):
-    """
-    Performs validation on the model.
-
-    Args:
-        model (TransformerModel): The transformer model to run validation for
-        criterion (_Loss): The loss function to evaluate based on
-        loader (DataLoader): The data loader
-
-    Returns:
-        [type]: [description]
-    """
-    model.eval()
-    epoch_loss = 0
-
-    with no_grad():
-        for batch_idx, (source, target) in enumerate(loader):
-            # Omit the current target element when passing into the transformer
-            output = model(source)
-
-            num_features = output.shape[-1]
-
-            # Flatten the input and output to compute loss
-            flat_labels = target.reshape(-1)
-            flat_output = output.reshape(-1, num_features)
-
-            # Accumulate loss
-            loss = criterion(flat_output, flat_labels)
-            epoch_loss += loss.item()
-
-    return epoch_loss / len(loader)
-
-
-def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[list[str]]:
+def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[list[MusicToken]]:
     """
     Evaluates and returns the output sequence given a set of input notes.
 
@@ -49,7 +15,7 @@ def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[li
     Returns:
         list[list[str]]: The processed outputs
     """
-    encoded_notes = MusicDataset.encode_notes(input_notes).unsqueeze(0)
+    encoded_notes = MusicToken.to_tensor(MusicToken.from_string(input_notes)).unsqueeze(0)
 
     model.eval()
     with no_grad():
@@ -59,22 +25,50 @@ def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[li
     return processed_output
 
 
-# def test(model, max_len=3, test_times=1):
-#     model.eval()
-#     with no_grad():
+def validate_transformer_single_epoch(model: TransformerModel, criterion: nn.CrossEntropyLoss, loader: DataLoader):
+    """
+    CURRENTLY UNUSED. No longer using validation in training process.
 
-#         for test_num in range(test_times):
+    Performs validation on the TransformerModel for a single epoch.
 
-#             s = random.randint(1, 4998)
-#             cpu_src = [(s + j) * 2 for j in range(max_len)]
-#             src = LongTensor(cpu_src).unsqueeze(1)
-#             tgt = [0] + [(s + j) * 2 + 1 for j in range(max_len)]
-#             pred = [0]
-#             for j in range(max_len):
-#                 inp = LongTensor(pred).unsqueeze(1)
-#                 output = model(src, inp)
-#                 out_num = output.argmax(2)[-1].item()
-#                 pred.append(out_num)
-#             print("input: ", cpu_src)
-#             print("target: ", tgt)
-#             print("predict: ", pred)
+    Args:
+        model (TransformerModel): The transformer model to run validation for
+        criterion (nn.CrossEntropyLoss): The loss function to evaluate based on
+        loader (DataLoader): The data loader
+
+    Returns:
+        tuple[float, float]: The validation loss and accuracy
+    """
+
+    model.eval()
+
+    epoch_total_loss = 0
+    epoch_correct = 0
+    epoch_predictions = 0
+
+    with no_grad():
+        for batch_idx, (source, target) in enumerate(loader):
+
+            output = model(source)
+
+            num_features = output.shape[-1]
+
+            # Flatten the input and output to compute loss
+            flat_labels = target.reshape(-1) - 1
+            flat_output = output.reshape(-1, num_features)
+
+            # Accumulate loss
+            loss = criterion(flat_output, flat_labels)
+
+            # Compute epoch metrics
+            epoch_total_loss += loss.item()
+
+            output_notes = output.argmax(axis=-1)
+            correct_notes = output_notes == target
+            epoch_correct += correct_notes.sum()
+            epoch_predictions += len(correct_notes)
+
+        epoch_loss = epoch_total_loss / len(loader)
+        epoch_accuracy = epoch_correct / epoch_predictions
+
+    return epoch_loss, epoch_accuracy

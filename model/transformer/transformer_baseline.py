@@ -1,13 +1,10 @@
-import math
 
-import torch
-from torch import nn, Tensor
-from util.constants import MUSIC_NOTES_LIST, PAD_TOKEN
-
+from data.dataset.music_token import MusicToken
+from torch import Tensor, nn
 from util.device import get_device
 
-from .positional_encoder import PositionalEncoder
 from .dummy_decoder import DummyDecoder
+from .positional_encoder import PositionalEncoder
 
 
 class TransformerModel(nn.Module):
@@ -22,7 +19,7 @@ class TransformerModel(nn.Module):
 
     Args:
         input_dict_size (int): Size of input embedding dictionary
-        output_dict_size (int): Size of output embedding dictionary
+        output_dict_size (int): Size of output embedding dictionary. Defaults to the input_dict_size.
         hidden_dim (int, optional): The number of expected features in the encoder/decoder inputs. Defaults to 512.
         feedforward_hidden_dim (int, optional): The number of features in the feedforward model of the transformer.
         Defaults to 2048.
@@ -34,7 +31,7 @@ class TransformerModel(nn.Module):
     def __init__(
         self,
         input_dict_size: int,
-        output_dict_size: int,
+        output_dict_size: int = None,
         hidden_dim: int = 512,
         feedforward_hidden_dim: int = 2048,
         num_layers: int = 6,
@@ -42,6 +39,11 @@ class TransformerModel(nn.Module):
         dropout: float = 0.1
     ):
         super().__init__()
+
+        PAD_TOKEN = MusicToken.get_pad_token_value()
+
+        if output_dict_size is None:
+            output_dict_size = input_dict_size
 
         self.embedding = nn.Embedding(input_dict_size, hidden_dim, padding_idx=PAD_TOKEN)
         self.positional_encoder = PositionalEncoder(hidden_dim, dropout=dropout)
@@ -60,7 +62,6 @@ class TransformerModel(nn.Module):
 
         # Fully connect and softmax the output
         self.fc_out = nn.Linear(hidden_dim, output_dict_size)
-        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, source: Tensor):
         """
@@ -73,8 +74,16 @@ class TransformerModel(nn.Module):
             Where N is the batch size, S is the length of the source sequence,
             and E is the number of features.
 
+        Shapes:
+            input: (N, S, Vin)
+            output: (N, S, Vout)
+
+            Where N is the batch size, S is the length of the source sequence,
+            and Vin is the size of the input vocabulary, and Vout is the size
+            of the output vocabulary.
+
         Returns:
-            The output sequence
+            Tensor: The output sequence
         """
 
         # Create a mask for the target
@@ -86,34 +95,33 @@ class TransformerModel(nn.Module):
         # Encode the position into the sequence
         encoded_sequence = self.positional_encoder(embedded_sequence)
 
-        # Get the output sequence
+        # Get the output sequence and permute to (N, S, E)
         embedded_output = self.transformer(src=encoded_sequence, tgt=encoded_sequence, src_mask=mask)
-
-        # Repermute the output back to (N, S, E)
         embedded_output = embedded_output.permute(1, 0, 2)
 
         output = self.fc_out(embedded_output)
         return output
 
     @staticmethod
-    def process_output(output: Tensor):
+    def process_output(output: Tensor) -> list[list[MusicToken]]:
         """
-        Processes the output tensor that this transformer produces into an
-        array of notes.
+        Processes the output tensor that this transformer produces into a list
+        of MusicToken objects.
 
         Args:
             output (Tensor): The output tensor to process
 
         Returns:
-            list[list[str]]: The processed outputs
+            list[list[MusicToken]]: The processed outputs
         """
         # Take the argmax across the features. Result is (N, S)
+        print(output)
         argmaxed_output = output.argmax(axis=-1)
 
-        processed_output = []
+        processed_output: list[list[MusicToken]] = []
 
         for sequence in argmaxed_output:
-            processed_sequence = [MUSIC_NOTES_LIST[note_idx] for note_idx in sequence]
+            processed_sequence = [MusicToken(note_idx.item()) for note_idx in sequence]
             processed_output.append(processed_sequence)
 
         return processed_output

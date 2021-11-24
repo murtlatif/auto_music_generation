@@ -1,4 +1,5 @@
 import torch
+from config import Config
 
 
 def get_device():
@@ -9,4 +10,7 @@ def get_device():
     Returns:
         str: The device type
     """
+    if Config.args.cpu:
+        return 'cpu'
+
     return 'cuda' if torch.cuda.is_available() else 'cpu'

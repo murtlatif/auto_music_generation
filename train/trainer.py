@@ -5,18 +5,16 @@ from torch.nn.modules.loss import _Loss
 from torch.utils.data.dataloader import DataLoader
 from util.model_file_manager import save_model
 
-from .evaluator import validation
-
 
 def train_transformer(
     model: TransformerModel,
     train_loader: DataLoader,
-    validation_loader: DataLoader,
     optimizer: optim.Optimizer,
     criterion: _Loss,
     epochs: int = 10,
     print_status: bool = True,
     save_best_model: bool = True,
+    save_on_accuracy: bool = False,
 ):
     """
     Trains a transformer model for multiple epochs.
@@ -24,43 +22,48 @@ def train_transformer(
     Args:
         model (TransformerModel): Model to train
         train_loader (DataLoader): DataLoader for the training set
-        validation_loader (DataLoader): DataLoader for the validation set
         optimizer (optim.Optimizer): Optimizer for the model
         criterion (_Loss): Loss function
         epochs (int, optional): Number of epochs to train. Defaults to 10.
         print_status (bool, optional): If it should print a status update every epoch. Defaults to True.
-        save_best_model (bool, optional): If it should save the model every time it outperforms the best validation loss. Defaults to True.
+        save_best_model (bool, optional): If it should save the model every time it outperforms the best training loss. Defaults to True.
+        save_on_accuracy (bool, optinoal): If the outperforming metric should instead be accuracy. Defaults to False.
 
     Returns:
-        tuple[list, list, str]: Train & validation loss per epoch, and the best model file name if one was saved.
+        tuple[list[float], list[float], str]: Train loss per epoch, and the best model file name if one was saved.
     """
     train_loss_per_epoch = []
-    validation_loss_per_epoch = []
-
-    best_validation_loss = float('inf')
+    train_accuracy_per_epoch = []
     best_epoch = -1
+    best_train_loss = None
+    best_train_accuracy = None
     best_model_name = ''
 
     try:
         for epoch in range(epochs):
-            epoch_train_loss = train_one_epoch_transformer(model, criterion, optimizer, train_loader)
-            epoch_validation_loss = validation(model, criterion, validation_loader)
+            epoch_train_loss, epoch_train_accuracy = train_transformer_single_epoch(
+                model, criterion, optimizer, train_loader)
 
-            # Add the train/validation losses for a plot
+            # Add the train loss/accuracy for a plot
             train_loss_per_epoch.append(epoch_train_loss)
-            validation_loss_per_epoch.append(epoch_validation_loss)
-
-            # scheduler.step()
+            train_accuracy_per_epoch.append(epoch_train_accuracy)
 
             # Record the best models
             is_new_best = False
-            if epoch_validation_loss < best_validation_loss:
+
+            if save_on_accuracy and (best_train_accuracy is None or epoch_train_accuracy > best_train_accuracy):
                 is_new_best = True
-                best_validation_loss = epoch_validation_loss
+                best_train_accuracy = epoch_train_accuracy
+                best_epoch = epoch
+
+            if (not save_on_accuracy) and (best_train_loss is None or epoch_train_loss < best_train_loss):
+                is_new_best = True
+                best_train_loss = epoch_train_loss
                 best_epoch = epoch
 
             if print_status:
-                status_text = f'Epoch {epoch+1:3}/{epochs} ({100*(epoch+1)/epochs:5.1f}%) | Loss (Train): {epoch_train_loss:.4f}, Loss (Validation): {epoch_validation_loss:.4f}'
+                status_text = f'Epoch {epoch+1:3}/{epochs} ({100*(epoch+1)/epochs:5.1f}%) | ' \
+                              f'Loss (Train): {epoch_train_loss:.4f} | Accuracy (Train): {epoch_train_accuracy:5.2%}'
 
                 if is_new_best:
                     status_text += ' [NEW BEST!]'
@@ -68,11 +71,19 @@ def train_transformer(
                 print(status_text)
 
             if save_best_model and is_new_best:
-                model_name = f'transformer_{Config.args.name or "Unnamed"}_{epoch_validation_loss:.4f}.pt'
-                save_model(model_name, model)
-                best_model_name = model_name
+                model_tag = f'acc_{best_train_accuracy:.2f}' if save_on_accuracy else f'loss_{best_train_loss:.3f}'
+                model_name = Config.args.name or 'Unnamed'
+                model_save_file = f'tfmr_{model_name}_{model_tag}.pt'
 
-        completed_text = f'Completed training. Best validation loss was {best_validation_loss} on epoch {best_epoch}.'
+                save_model(model_save_file, model)
+                best_model_name = model_save_file
+
+        completed_text = 'Completed training.'
+        if save_on_accuracy:
+            completed_text += f' Best training accuracy was {best_train_accuracy} on epoch {best_epoch}.'
+        else:
+            completed_text += f' Best training loss was {best_train_loss} on epoch {best_epoch}.'
+
         if save_best_model:
             completed_text += f' Best model saved on epoch {best_epoch} as: {best_model_name}'
         print(completed_text)
@@ -84,12 +95,17 @@ def train_transformer(
 
         print(abort_text)
 
-    return train_loss_per_epoch, validation_loss_per_epoch, best_model_name
+    return train_loss_per_epoch, train_accuracy_per_epoch, best_model_name
 
 
-def train_one_epoch_transformer(transformer: TransformerModel, criterion: nn.CrossEntropyLoss, optimizer: optim.Optimizer, loader: DataLoader) -> float:
+def train_transformer_single_epoch(
+    transformer: TransformerModel,
+    criterion: nn.CrossEntropyLoss,
+    optimizer: optim.Optimizer,
+    loader: DataLoader,
+) -> float:
     """
-    Trains a transformer model for one epoch.
+    Trains a TransformerModel with one epoch.
 
     Args:
         transformer (TransformerModel): The transformer model to train
@@ -98,28 +114,43 @@ def train_one_epoch_transformer(transformer: TransformerModel, criterion: nn.Cro
         loader (DataLoader): The dataset loader to train on
 
     Returns:
-        float: The loss of the epoch given by the criterion 
+        tuple[float, float]: The loss and accuracy of the epoch
     """
 
     transformer.train()
 
-    epoch_loss = 0
+    epoch_total_loss = 0
+    epoch_predictions = 0
+    epoch_correct = 0
 
     for batch_idx, (source, target) in enumerate(loader):
         optimizer.zero_grad()
 
         output = transformer(source)
+        num_features = output.shape[-1]
 
-        output = output.reshape(output.shape[0] * output.shape[1], -1)
+        # Flatten the input and output to compute loss
+        output = output.reshape(-1, num_features)
         target = target.flatten()
+
+        if Config.args.verbose:
+            verbosity = Config.args.verbose
+            print(f'Sample outputs: ', output[:verbosity], target[:verbosity])
 
         loss = criterion(output, target)
         loss.backward()
 
-        # Clip the gradient by the norm to prevent exploding gradient
-        nn.utils.clip_grad_norm_(transformer.parameters(), 1.0)
-
         optimizer.step()
-        epoch_loss += loss.item()
 
-    return epoch_loss / len(loader)
+        # Compute epoch metrics
+        epoch_total_loss += loss.item()
+
+        output_notes = output.argmax(axis=-1)
+        correct_notes = output_notes == target
+        epoch_correct += correct_notes.sum()
+        epoch_predictions += len(correct_notes)
+
+    epoch_loss = epoch_total_loss / len(loader)
+    epoch_accuracy = epoch_correct / epoch_predictions
+
+    return epoch_loss, epoch_accuracy

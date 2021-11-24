@@ -1,73 +1,94 @@
 import torch
 from torch import nn, optim
 from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.dataset import random_split
 
 from config import Config
 from data.dataset.music_dataset import MusicDataset
+from data.dataset.music_token import MusicToken
 from model.transformer.transformer_baseline import TransformerModel
 from train.evaluator import evaluate_note_sequence
 from train.trainer import train_transformer
-from util.constants import PAD_TOKEN, Songs
+from util.constants import Songs
 from util.model_file_manager import load_model
 from util.random_substring import get_random_substrings
+from visualize.plot_model_stats import plot_accuracy, plot_loss
 
 
-def get_transformer_model(hidden_dim: int = 512, num_layers: int = 6):
-    dict_size = 8
-    transformer_model = TransformerModel(
-        input_dict_size=dict_size, output_dict_size=dict_size, hidden_dim=hidden_dim, num_layers=num_layers)
+def get_transformer_model(hidden_dim: int = 512, num_layers: int = 6) -> TransformerModel:
+    """
+    Creates the TransformerModel with an input/output dictionary size according
+    to the number of tokens in MusicToken.
+
+    Args:
+        hidden_dim (int, optional): Number of features in the model. Defaults to 512.
+        num_layers (int, optional): Number of layers in the model. Defaults to 6.
+
+    Returns:
+        TransformerModel: Transformer model with given parameters
+    """
+    dict_size = len(MusicToken)
+    transformer_model = TransformerModel(input_dict_size=dict_size, hidden_dim=hidden_dim, num_layers=num_layers)
 
     return transformer_model
 
 
-def get_music_data_loaders(songs: list[str], batch_size: int, max_sequence_len: int, train_split_percentage: float = 0.9):
+def get_music_data_loader(songs: list[str], batch_size: int, max_sequence_len: 'int | None' = None) -> DataLoader:
     # Default max sequence length to the maximum song length
     if max_sequence_len is None:
         max_sequence_len = max([len(song) for song in songs])
 
     dataset = MusicDataset(songs, max_sequence_length=max_sequence_len)
 
-    train_len = int(len(dataset) * train_split_percentage)
-    validation_len = len(dataset) - train_len
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
 
-    train_set, validation_set = random_split(dataset, [train_len, validation_len])
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=1)
-    validation_loader = DataLoader(validation_set, batch_size=batch_size, shuffle=True, num_workers=1)
-
-    return train_loader, validation_loader
+    return train_loader
 
 
-def get_song_snippets(song: str, len_snippets: int, num_snippets: int):
-    snippets = get_random_substrings(song, len_snippets, num_snippets, step=4)
+def get_song_snippets(song: str, len_snippets: int, num_snippets: int) -> list[str]:
+    snippets = get_random_substrings(song, len_snippets, num_snippets)
     return snippets
 
 
-def train_transformer_on_notes(model: TransformerModel, epochs: int = 10, batch_size: int = 32, print_status: bool = True, save_best_model: bool = True):
+def train_transformer_on_notes(
+    model: TransformerModel,
+    epochs: int = 10,
+    batch_size: int = 32,
+    print_status: bool = True,
+):
     # Initialize parameters
-    train_split_percentage = 0.9
-    song_sample_length = 5
+    song_sample_length = 33
 
     # Initialize dataset
     all_songs = []
-    all_songs.extend(get_song_snippets(Songs.JINGLE_BELLS, len_snippets=song_sample_length, num_snippets=128))
+    # all_songs.extend(get_song_snippets(Songs.TEST_SONG, len_snippets=song_sample_length, num_snippets=16))
+    # all_songs.extend(get_song_snippets(Songs.JINGLE_BELLS, len_snippets=song_sample_length, num_snippets=128))
     all_songs.extend(get_song_snippets(Songs.ODE_TO_JOY, len_snippets=song_sample_length, num_snippets=64))
-    all_songs.extend(get_song_snippets(Songs.TWINKLE_TWINKLE, len_snippets=song_sample_length, num_snippets=32))
-    all_songs.extend(get_song_snippets(Songs.OLD_MCDONALD, len_snippets=song_sample_length, num_snippets=32))
-    all_songs.extend(get_song_snippets(Songs.ROW_YOUR_BOAT, len_snippets=song_sample_length, num_snippets=16))
-    all_songs.extend(get_song_snippets(Songs.HAPPY_BIRTHDAY, len_snippets=song_sample_length, num_snippets=16))
+    # all_songs.extend(get_song_snippets(Songs.TWINKLE_TWINKLE, len_snippets=song_sample_length, num_snippets=32))
+    # all_songs.extend(get_song_snippets(Songs.OLD_MCDONALD, len_snippets=song_sample_length, num_snippets=32))
+    # all_songs.extend(get_song_snippets(Songs.ROW_YOUR_BOAT, len_snippets=song_sample_length, num_snippets=16))
+    # all_songs.extend(get_song_snippets(Songs.HAPPY_BIRTHDAY, len_snippets=song_sample_length, num_snippets=16))
 
-    train_loader, validation_loader = get_music_data_loaders(all_songs, batch_size, song_sample_length-1)
+    train_loader = get_music_data_loader(all_songs, batch_size, song_sample_length-1)
 
     # Initialize training objects
-    optimizer = optim.Adam(model.parameters())
-    criterion = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+    optimizer = optim.Adam(model.parameters(), lr=Config.args.learning_rate)
+    criterion = nn.CrossEntropyLoss()
 
-    train_losses, validation_losses, best_model_file = train_transformer(model, train_loader, validation_loader, optimizer,
-                                                                         criterion, epochs, print_status, save_best_model)
+    train_losses, train_accuracies, best_model_file = train_transformer(
+        model,
+        train_loader,
+        optimizer,
+        criterion,
+        epochs,
+        print_status,
+        save_best_model=Config.args.save,
+        save_on_accuracy=Config.args.save_on_accuracy
+    )
 
     # TODO: Plot the training and validation loss
-    # HERE #
+    if Config.args.display:
+        plot_loss(train_losses)
+        plot_accuracy(train_accuracies)
 
     return best_model_file
 
