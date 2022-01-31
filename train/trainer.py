@@ -1,8 +1,10 @@
-from config import Config
-from model.transformer.transformer_baseline import TransformerModel
 from torch import nn, optim
 from torch.nn.modules.loss import _Loss
 from torch.utils.data.dataloader import DataLoader
+
+from config import Config
+from model.transformer.transformer_baseline import TransformerModel
+from util.device import get_device
 from util.model_file_manager import save_model
 
 
@@ -63,7 +65,7 @@ def train_transformer(
 
             if print_status:
                 status_text = f'Epoch {epoch+1:3}/{epochs} ({100*(epoch+1)/epochs:5.1f}%) | ' \
-                              f'Loss (Train): {epoch_train_loss:.4f} | Accuracy (Train): {epoch_train_accuracy:5.2%}'
+                              f'Loss: {epoch_train_loss:.4f} | Accuracy: {epoch_train_accuracy:5.2%}'
 
                 if is_new_best:
                     status_text += ' [NEW BEST!]'
@@ -71,9 +73,10 @@ def train_transformer(
                 print(status_text)
 
             if save_best_model and is_new_best:
-                model_tag = f'acc_{best_train_accuracy:.2f}' if save_on_accuracy else f'loss_{best_train_loss:.3f}'
                 model_name = Config.args.name or 'Unnamed'
-                model_save_file = f'tfmr_{model_name}_{model_tag}.pt'
+                model_tag = f'acc_{best_train_accuracy:.2f}' if save_on_accuracy else f'loss_{best_train_loss:.3f}'
+                model_device = get_device()
+                model_save_file = f'tfmr_{model_name}_{model_device}_{model_tag}.pt'
 
                 save_model(model_save_file, model)
                 best_model_name = model_save_file
@@ -135,7 +138,7 @@ def train_transformer_single_epoch(
 
         if Config.args.verbose:
             verbosity = Config.args.verbose
-            print(f'Sample outputs: ', output[:verbosity], target[:verbosity])
+            print(f'Sample outputs: {output[:verbosity]} {target[:verbosity]}')
 
         loss = criterion(output, target)
         loss.backward()

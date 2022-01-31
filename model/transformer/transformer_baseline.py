@@ -45,8 +45,10 @@ class TransformerModel(nn.Module):
         if output_dict_size is None:
             output_dict_size = input_dict_size
 
-        self.embedding = nn.Embedding(input_dict_size, hidden_dim, padding_idx=PAD_TOKEN)
-        self.positional_encoder = PositionalEncoder(hidden_dim, dropout=dropout)
+        self.embedding = nn.Embedding(
+            input_dict_size, hidden_dim, padding_idx=PAD_TOKEN)
+        self.positional_encoder = PositionalEncoder(
+            hidden_dim, dropout=dropout)
 
         dummy_decoder = DummyDecoder()
 
@@ -87,7 +89,8 @@ class TransformerModel(nn.Module):
         """
 
         # Create a mask for the target
-        mask = self.transformer.generate_square_subsequent_mask(source.shape[1]).to(get_device())
+        mask = self.transformer.generate_square_subsequent_mask(
+            source.shape[1]).to(get_device())
 
         # Embedded sequence has shape (N, S, E). Permute to (S, N, E).
         embedded_sequence = self.embedding(source).permute(1, 0, 2)
@@ -96,7 +99,8 @@ class TransformerModel(nn.Module):
         encoded_sequence = self.positional_encoder(embedded_sequence)
 
         # Get the output sequence and permute to (N, S, E)
-        embedded_output = self.transformer(src=encoded_sequence, tgt=encoded_sequence, src_mask=mask)
+        embedded_output = self.transformer(
+            src=encoded_sequence, tgt=encoded_sequence, src_mask=mask)
         embedded_output = embedded_output.permute(1, 0, 2)
 
         output = self.fc_out(embedded_output)
@@ -115,13 +119,13 @@ class TransformerModel(nn.Module):
             list[list[MusicToken]]: The processed outputs
         """
         # Take the argmax across the features. Result is (N, S)
-        print(output)
         argmaxed_output = output.argmax(axis=-1)
 
         processed_output: list[list[MusicToken]] = []
 
         for sequence in argmaxed_output:
-            processed_sequence = [MusicToken(note_idx.item()) for note_idx in sequence]
+            processed_sequence = [MusicToken(
+                note_idx.item()) for note_idx in sequence]
             processed_output.append(processed_sequence)
 
         return processed_output

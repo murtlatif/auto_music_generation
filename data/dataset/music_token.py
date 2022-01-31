@@ -15,6 +15,11 @@ class MusicToken(Enum):
     F = auto()
     G = auto()
 
+    def __repr__(self) -> str:
+        if self == MusicToken.UNKNOWN:
+            return '<MusicToken.UNKNOWN>'
+        return self.name
+
     @staticmethod
     def from_character(character: str) -> MusicToken:
         if character.upper() in {'A', 'B', 'C', 'D', 'E', 'F', 'G'}:

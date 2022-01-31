@@ -8,10 +8,18 @@ from data.dataset.music_token import MusicToken
 from model.transformer.transformer_baseline import TransformerModel
 from train.evaluator import evaluate_note_sequence
 from train.trainer import train_transformer
-from util.constants import Songs
+from util.constants import SongSnippets, Songs
 from util.model_file_manager import load_model
-from util.random_substring import get_random_substrings
+from util.substring_util import get_random_substrings
 from visualize.plot_model_stats import plot_accuracy, plot_loss
+
+"""
+Sample usage - Training a model:
+    python model_main.py -vt --name v01 -s -soa --seed 29 -e 15
+
+Sample usage - Evaluating a model:
+    python model_main.py --seed 29 -i -l model/cache/tfmr_NAME_cpu_acc_1.00pt
+"""
 
 
 def get_transformer_model(hidden_dim: int = 512, num_layers: int = 6) -> TransformerModel:
@@ -27,7 +35,8 @@ def get_transformer_model(hidden_dim: int = 512, num_layers: int = 6) -> Transfo
         TransformerModel: Transformer model with given parameters
     """
     dict_size = len(MusicToken)
-    transformer_model = TransformerModel(input_dict_size=dict_size, hidden_dim=hidden_dim, num_layers=num_layers)
+    transformer_model = TransformerModel(
+        input_dict_size=dict_size, hidden_dim=hidden_dim, num_layers=num_layers)
 
     return transformer_model
 
@@ -39,7 +48,8 @@ def get_music_data_loader(songs: list[str], batch_size: int, max_sequence_len: '
 
     dataset = MusicDataset(songs, max_sequence_length=max_sequence_len)
 
-    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
+    train_loader = DataLoader(
+        dataset, batch_size=batch_size, shuffle=True, num_workers=1)
 
     return train_loader
 
@@ -56,19 +66,26 @@ def train_transformer_on_notes(
     print_status: bool = True,
 ):
     # Initialize parameters
-    song_sample_length = 33
+    song_sample_length = 17
 
     # Initialize dataset
     all_songs = []
-    # all_songs.extend(get_song_snippets(Songs.TEST_SONG, len_snippets=song_sample_length, num_snippets=16))
-    # all_songs.extend(get_song_snippets(Songs.JINGLE_BELLS, len_snippets=song_sample_length, num_snippets=128))
-    all_songs.extend(get_song_snippets(Songs.ODE_TO_JOY, len_snippets=song_sample_length, num_snippets=64))
-    # all_songs.extend(get_song_snippets(Songs.TWINKLE_TWINKLE, len_snippets=song_sample_length, num_snippets=32))
-    # all_songs.extend(get_song_snippets(Songs.OLD_MCDONALD, len_snippets=song_sample_length, num_snippets=32))
-    # all_songs.extend(get_song_snippets(Songs.ROW_YOUR_BOAT, len_snippets=song_sample_length, num_snippets=16))
-    # all_songs.extend(get_song_snippets(Songs.HAPPY_BIRTHDAY, len_snippets=song_sample_length, num_snippets=16))
+    # all_songs.extend(get_song_snippets(Songs.JINGLE_BELLS,
+    #                  len_snippets=song_sample_length, num_snippets=128))
+    # all_songs.extend(get_song_snippets(Songs.ODE_TO_JOY,
+    #                  len_snippets=song_sample_length, num_snippets=64))
+    # all_songs.extend(get_song_snippets(Songs.TWINKLE_TWINKLE,
+    #                  len_snippets=song_sample_length, num_snippets=32))
+    # all_songs.extend(get_song_snippets(Songs.OLD_MCDONALD,
+    #                  len_snippets=song_sample_length, num_snippets=32))
+    # all_songs.extend(get_song_snippets(Songs.ROW_YOUR_BOAT,
+    #                  len_snippets=song_sample_length, num_snippets=16))
+    # all_songs.extend(get_song_snippets(Songs.HAPPY_BIRTHDAY,
+    #                  len_snippets=song_sample_length, num_snippets=16))
+    all_songs.extend(SongSnippets.TWINKLE_TWINKLE)
 
-    train_loader = get_music_data_loader(all_songs, batch_size, song_sample_length-1)
+    train_loader = get_music_data_loader(
+        all_songs, batch_size, max_sequence_len=song_sample_length-1)
 
     # Initialize training objects
     optimizer = optim.Adam(model.parameters(), lr=Config.args.learning_rate)
@@ -85,7 +102,6 @@ def train_transformer_on_notes(
         save_on_accuracy=Config.args.save_on_accuracy
     )
 
-    # TODO: Plot the training and validation loss
     if Config.args.display:
         plot_loss(train_losses)
         plot_accuracy(train_accuracies)
@@ -116,7 +132,8 @@ if __name__ == '__main__':
         try:
             while True:
                 input_sequence = input('Enter input sequence: ')
-                processed_output = evaluate_note_sequence(model, input_sequence)
+                processed_output = evaluate_note_sequence(
+                    model, input_sequence)
 
                 print(f'Input: {input_sequence}')
                 print(f'Output: {processed_output}')

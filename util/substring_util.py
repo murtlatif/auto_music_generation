@@ -1,4 +1,5 @@
 from random import randrange
+from typing import Optional
 
 
 def get_random_substring(string: str, substring_length: int, step: int = 1) -> str:
@@ -36,7 +37,33 @@ def get_random_substrings(string: str, substring_length: int, num_substrings: in
     """
     random_substrings: list[str] = []
     for i in range(num_substrings):
-        random_substring = get_random_substring(string, substring_length, step=step)
+        random_substring = get_random_substring(
+            string, substring_length, step=step)
         random_substrings.append(random_substring)
 
     return random_substrings
+
+
+def get_all_substrings(string: str, max_size: Optional[int] = None) -> list[str]:
+    """
+    Returns all the substrings until max_size. If max_size is None then
+    it will be set to the length of the string.
+
+    Args:
+        string (str): The string to extract substrings from
+        max_size (Optional[int]): The maximum size of the substring
+
+    Returns:
+        list[str]: All substrings of size 1 to max_size
+    """
+    all_substrings: list[str] = []
+    if not max_size:
+        max_size = len(string)
+
+    for start_idx in range(len(string)):
+        # TODO: Do not copy final sizes multiple times
+        substrings = [string[start_idx:start_idx+size]
+                      for size in range(1, max_size+1)]
+        all_substrings.extend(substrings)
+
+    return all_substrings
