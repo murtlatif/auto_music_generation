@@ -54,6 +54,8 @@ class ArgparseConfig:
         parser.add_argument('-s', '--save', action='store_true', help='Save the model when training')
         parser.add_argument('-soa', '--save-on-acc', action='store_true', dest='save_on_accuracy',
                             help='Use this flag to determine the best model via accuracy instead of loss')
+        parser.add_argument('-q', '--sequence-output', action='store_true',
+                            help='Whether the model should have a sequence output.')
 
         parser.add_argument('-d', '--display', action='store_true', help='Display visuals of results')
         parser.add_argument('-i', '--interactive', action='store_true',

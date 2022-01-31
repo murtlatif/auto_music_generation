@@ -16,8 +16,12 @@ class MusicToken(Enum):
     G = auto()
 
     def __repr__(self) -> str:
+        return f'<MusicToken.{self.name}>'
+
+    def __str__(self):
         if self == MusicToken.UNKNOWN:
-            return '<MusicToken.UNKNOWN>'
+            return '?'
+        
         return self.name
 
     @staticmethod
@@ -26,6 +30,14 @@ class MusicToken(Enum):
             return MusicToken[character.upper()]
 
         return MusicToken.UNKNOWN
+
+    @staticmethod
+    def to_string_list(music_tokens: list[MusicToken]) -> list[str]:
+        return [str(music_token) for music_token in music_tokens]
+
+    @staticmethod
+    def to_joined_string(music_tokens: list[MusicToken]) -> str:
+        return ''.join(MusicToken.to_string_list(music_tokens))
 
     @staticmethod
     def from_string(string: str) -> list[MusicToken]:

@@ -4,7 +4,7 @@ from torch import nn, no_grad
 from torch.utils.data.dataloader import DataLoader
 
 
-def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[list[MusicToken]]:
+def evaluate_note_sequence(model: TransformerModel, input_notes: str):
     """
     Evaluates and returns the output sequence given a set of input notes.
 
@@ -20,9 +20,23 @@ def evaluate_note_sequence(model: TransformerModel, input_notes: str) -> list[li
     model.eval()
     with no_grad():
         output = model(encoded_notes)
-        processed_output = TransformerModel.process_output(output)
+        processed_output = model.process_output(output)
 
     return processed_output
+
+
+def evaluate_note_sequence_iteratively(model: TransformerModel, input_notes: str, number_of_iterations: int):
+    """
+    Evaluates the output sequence, then evaluates the output sequence again
+    using the previous output as the new input. Repeats for the given number
+    of iterations.
+    """
+    for i in range(number_of_iterations):
+        output_sequence = evaluate_note_sequence(model, input_notes)
+        output_notes_string = MusicToken.to_joined_string(output_sequence)
+        input_notes = input_notes + output_notes_string
+
+    return input_notes
 
 
 def validate_transformer_single_epoch(model: TransformerModel, criterion: nn.CrossEntropyLoss, loader: DataLoader):

@@ -17,5 +17,5 @@ venv/
 # Executables
 *.exe
 
-# Model States
+# Model State Files
 model/cache/*.pt
