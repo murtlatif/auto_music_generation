@@ -1,11 +1,69 @@
-from data.dataset.music_token import MusicToken
-from model.transformer.transformer_baseline import TransformerModel
-from torch import nn, no_grad
+import torch
+from automusicgen.data.dataset.music_token import MusicToken
+from automusicgen.model.transformer.transformer_baseline import \
+    TransformerModel
+from automusicgen.util.device import get_device
+from torch import Tensor, nn, no_grad
 from torch.utils.data.dataloader import DataLoader
+
+
+def _greedy_decode(model: TransformerModel, source: Tensor, source_mask: Tensor, max_length: int, start_token: int):
+    DEVICE = get_device()
+    
+    source = source.to(DEVICE)
+    source_mask = source_mask.to(DEVICE)
+
+    memory = model.encode(source=source, source_mask=source_mask)
+    output = torch.ones(1, 1).fill_(start_token).type(torch.int).to(DEVICE)
+
+    for _ in range(max_length - 1):
+        memory = memory.to(DEVICE)
+        target_mask = model.transformer.generate_square_subsequent_mask(output.size(0)).to(DEVICE)
+        decoded_output = model.decode(target=output, memory=memory, target_mask=target_mask)
+        decoded_output = decoded_output.transpose(0, 1)
+        next_note_probabilities = model.fc_out(decoded_output[:, -1])
+        _, next_note = torch.max(next_note_probabilities, dim=1)
+        next_note = next_note.item()
+
+        output = torch.cat([
+            output,
+            torch.ones(1, 1).type_as(source.data).fill_(next_note)
+        ], dim=0)
+
+        if next_note == MusicToken.EndOfSequence.value:
+            break
+
+    return output
+
+def generate_music(model: TransformerModel, input_song: str) -> list[MusicToken]:
+    model.eval()
+
+    # Add <bos> and <eos> tags to the song
+    tagged_input_song = f'<{input_song}>'
+
+    # Format the music tokens as (S, N) where S is sequence length, N is batch size
+    source = MusicToken.to_tensor(MusicToken.from_string(tagged_input_song)).view(-1, 1)
+
+    num_tokens = source.shape[0]
+    source_mask = torch.zeros(num_tokens, num_tokens).type(torch.bool)
+
+    target_tokens = _greedy_decode(
+        model,
+        source,
+        source_mask,
+        max_length=num_tokens+5,
+        start_token=MusicToken.BeginningOfSequence.value
+    ).flatten().tolist()
+
+    output_music_tokens = [MusicToken(target_token) for target_token in target_tokens]
+    return output_music_tokens
+
 
 
 def evaluate_note_sequence(model: TransformerModel, input_notes: str):
     """
+    DEPRECATED
+
     Evaluates and returns the output sequence given a set of input notes.
 
     Args:
@@ -24,9 +82,10 @@ def evaluate_note_sequence(model: TransformerModel, input_notes: str):
 
     return processed_output
 
-
 def evaluate_note_sequence_iteratively(model: TransformerModel, input_notes: str, number_of_iterations: int):
     """
+    DEPRECATED
+
     Evaluates the output sequence, then evaluates the output sequence again
     using the previous output as the new input. Repeats for the given number
     of iterations.

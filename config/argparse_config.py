@@ -1,5 +1,7 @@
 from argparse import ArgumentParser, Namespace
 
+from automusicgen.util.constants import SaveMode
+
 
 class ArgparseConfig:
     """Configuration for command line arguments"""
@@ -43,7 +45,7 @@ class ArgparseConfig:
     def _add_arguments_to_parser(self, parser: ArgumentParser):
         parser.add_argument('--cpu', action='store_true', help='Force device to CPU')
         parser.add_argument('--seed', type=int, default=29, help='The random seed to use')
-        parser.add_argument('-v', '--verbose', action='count', help='Increase verbosity of program')
+        parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity of program')
 
         parser.add_argument('--name', type=str, help='Name of model; used when saving model data')
         parser.add_argument('-l', '--load-model', dest='load_model_path', help='File path to a .pt model')
@@ -51,8 +53,8 @@ class ArgparseConfig:
         parser.add_argument('-e', '--epochs', type=int, default=10, help='The number of epochs to train the model')
         parser.add_argument('-b', '--batch-size', type=int, default=32, help='Batch size for training')
         parser.add_argument('-lr', '--learning-rate', type=float, default=1e-5, help='Learning rate for training')
-        parser.add_argument('-s', '--save', action='store_true', help='Save the model when training')
-        parser.add_argument('-soa', '--save-on-acc', action='store_true', dest='save_on_accuracy',
+        parser.add_argument('-s', '--save-mode', type=SaveMode, choices=list(SaveMode), help='Save the model when training')
+        parser.add_argument('-a', '--save-on-acc', action='store_true', dest='save_on_accuracy',
                             help='Use this flag to determine the best model via accuracy instead of loss')
         parser.add_argument('-q', '--sequence-output', action='store_true',
                             help='Whether the model should have a sequence output.')

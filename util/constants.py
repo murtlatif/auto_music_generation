@@ -1,26 +1,29 @@
-from .substring_util import get_all_substrings
+from enum import Enum, auto
+
+
+class SaveMode(Enum):
+    NoSave = 'no-save'
+    SaveLast = 'save-last'
+    SaveBest = 'save-best'
+    SaveEachNewBest = 'save-all-best'
+
+    def __str__(self):
+        return self.value
+
+class SongPartitionMethod(Enum):
+    NoPartition = auto(),
+    AllSubstrings = auto(),
 
 
 class DotenvKeys:
     MODEL_DEFAULT_DIR = 'MODEL_DEFAULT_DIR'
     MUSIC_DIR = 'MUSIC_DIR'
 
-
 class Songs:
-    TEST_SONG = "ABABABABABABABAB"
+    TEST_SONG = "ABABABABABABABABABABABABABAB"
     OLD_MCDONALD = "CCCGAAGGEEDDCCCGCCCGAAGGEEDDCCCG"
     TWINKLE_TWINKLE = "CCGGAAGGFFEEDDCCGGFFEEDDGGFFEEDDCCGGAAGGFFEEDDCC"
     ODE_TO_JOY = "EEFGGFEDCCDEEDDDEEFGGFEDCCDEDCCCDDECDFECDFEDCDGGEEFGGFEDCCDEDCC"
     HAPPY_BIRTHDAY = "GGAGCBGGAGDCGGGECBAFFECDC"
     ROW_YOUR_BOAT = "CCCDEEDEFGCCCGGGEEECCCGFEDC"
     JINGLE_BELLS = "CAGFCCCCAGFDDDDDBAGEEEECCBGAAAACAGFCCCCCAGFDDDDDBAGCCCCDCBGFAAAAAAAAACFGABBBBBAAAAGGAGGCCAAAAAAAAACFGAAAABBBBBAAACCBGF"
-    TEST_SONG = "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB"
-
-
-class SongSnippets:
-    TEST_SONG = get_all_substrings(Songs.JINGLE_BELLS)
-    ODE_TO_JOY = get_all_substrings(Songs.ODE_TO_JOY)
-    TWINKLE_TWINKLE = get_all_substrings(Songs.TWINKLE_TWINKLE)
-    OLD_MCDONALD = get_all_substrings(Songs.OLD_MCDONALD)
-    ROW_YOUR_BOAT = get_all_substrings(Songs.ROW_YOUR_BOAT)
-    HAPPY_BIRTHDAY = get_all_substrings(Songs.HAPPY_BIRTHDAY)

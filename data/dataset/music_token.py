@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from enum import Enum, auto
 
-from torch import LongTensor
+from automusicgen.util.device import get_device
+from torch import IntTensor
 
 
 class MusicToken(Enum):
-    UNKNOWN = 0
+    Unknown = 0
+    Pad = auto()
+    BeginningOfSequence = auto()
+    EndOfSequence = auto()
     A = auto()
     B = auto()
     C = auto()
@@ -16,28 +20,34 @@ class MusicToken(Enum):
     G = auto()
 
     def __repr__(self) -> str:
-        return f'<MusicToken.{self.name}>'
+        return _token_str_map[self] or f'<MusicToken.{self.name}>'
 
-    def __str__(self):
-        if self == MusicToken.UNKNOWN:
-            return '?'
-        
-        return self.name
+    def __str__(self) -> str:
+        return _token_str_map[self] or f'<MusicToken.{self.name}>'
 
     @staticmethod
     def from_character(character: str) -> MusicToken:
         if character.upper() in {'A', 'B', 'C', 'D', 'E', 'F', 'G'}:
             return MusicToken[character.upper()]
 
-        return MusicToken.UNKNOWN
+        if character.upper() in {'X'}:
+            return MusicToken.Pad
+
+        if character == '<':
+            return MusicToken.BeginningOfSequence
+        
+        if character == '>':
+            return MusicToken.EndOfSequence
+
+        return MusicToken.Unknown
 
     @staticmethod
     def to_string_list(music_tokens: list[MusicToken]) -> list[str]:
         return [str(music_token) for music_token in music_tokens]
 
     @staticmethod
-    def to_joined_string(music_tokens: list[MusicToken]) -> str:
-        return ''.join(MusicToken.to_string_list(music_tokens))
+    def to_joined_string(music_tokens: list[MusicToken], join_string: str = '') -> str:
+        return join_string.join(MusicToken.to_string_list(music_tokens))
 
     @staticmethod
     def from_string(string: str) -> list[MusicToken]:
@@ -48,9 +58,23 @@ class MusicToken(Enum):
         return [music_token.value for music_token in music_tokens]
 
     @staticmethod
-    def to_tensor(music_tokens: list[MusicToken]) -> LongTensor:
-        return LongTensor(MusicToken.as_values(music_tokens))
+    def to_tensor(music_tokens: list[MusicToken]) -> IntTensor:
+        return IntTensor(MusicToken.as_values(music_tokens)).to(device=get_device())
 
     @staticmethod
     def get_pad_token_value() -> int:
-        return MusicToken.UNKNOWN.value
+        return MusicToken.Pad.value
+
+_token_str_map = {
+    MusicToken.Unknown: '<unk>',
+    MusicToken.Pad: '<pad>',
+    MusicToken.BeginningOfSequence: '<bos>',
+    MusicToken.EndOfSequence: '<eos>',
+    MusicToken.A: 'a',
+    MusicToken.B: 'b',
+    MusicToken.C: 'c',
+    MusicToken.D: 'd',
+    MusicToken.E: 'e',
+    MusicToken.F: 'f',
+    MusicToken.G: 'g',
+}

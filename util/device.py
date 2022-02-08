@@ -1,5 +1,5 @@
 import torch
-from config import Config
+from automusicgen.config import Config
 
 
 def get_device():

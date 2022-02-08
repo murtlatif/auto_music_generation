@@ -61,9 +61,11 @@ def get_all_substrings(string: str, max_size: Optional[int] = None) -> list[str]
         max_size = len(string)
 
     for start_idx in range(len(string)):
-        # TODO: Do not copy final sizes multiple times
-        substrings = [string[start_idx:start_idx+size]
-                      for size in range(1, max_size+1)]
-        all_substrings.extend(substrings)
+        for current_size in range(1, max_size + 1):
+            end_idx = start_idx + current_size
+            if end_idx > len(string):
+                break
+            
+            all_substrings.append(string[start_idx:end_idx])
 
     return all_substrings

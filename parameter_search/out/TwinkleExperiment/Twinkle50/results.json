@@ -1,0 +1,7 @@
+{
+  "Loss": "[0.1151, 1.9642]  Final: 0.1151",
+  "Accuracy": "[ 20.8%,  95.7%]  Final:  95.7%",
+  "Test Song Output": "<bos> c c g g a a g g f f e e d d c c g g f f e e d d g g f f e e d d c g a g g f e d c c <eos>",
+  "Model File": "tfmr_Twinkle50_cuda_acc_0.96.pt",
+  "Output Directory": "parameter_search/out/TwinkleExperiment/Twinkle50"
+}

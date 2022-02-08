@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 
-def plot_loss(loss_data: list[float]):
+def plot_loss(loss_data: list[float], show: bool = True, save_path: str = None):
     plt.figure()
     plt.plot(loss_data)
 
@@ -9,10 +9,14 @@ def plot_loss(loss_data: list[float]):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
 
-    plt.show()
+    if save_path:
+        plt.savefig(save_path)
+
+    if show:
+        plt.show()
 
 
-def plot_accuracy(accuracy_data: list[float]):
+def plot_accuracy(accuracy_data: list[float], show: bool = True, save_path: bool = False):
     plt.figure()
     plt.plot(accuracy_data)
 
@@ -20,4 +24,8 @@ def plot_accuracy(accuracy_data: list[float]):
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
 
-    plt.show()
+    if save_path:
+        plt.savefig(save_path)
+
+    if show:
+        plt.show()

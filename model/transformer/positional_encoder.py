@@ -1,7 +1,8 @@
 import math
 
 import torch
-from torch import nn, Tensor
+from automusicgen.util.device import get_device
+from torch import Tensor, nn
 
 
 class PositionalEncoder(nn.Module):
@@ -21,19 +22,19 @@ class PositionalEncoder(nn.Module):
         max_len (int, optional): The maximum length of an input. Defaults to 100.
     """
 
-    def __init__(self, hidden_dim: int, dropout: float = 0.1, max_len: int = 100):
+    def __init__(self, hidden_dim: int, dropout: float = 0.1, max_len: int = 100, device: str = get_device()):
         super().__init__()
 
         self.dropout = nn.Dropout(p=dropout)
 
         # The positional encoding is of shape (max_len, hidden_dim)
-        positional_encoding = torch.zeros(max_len, hidden_dim)
+        positional_encoding = torch.zeros(max_len, hidden_dim, device=device)
 
         # Get the raw positions for the length dimension (max_len, 1)
-        length_pos = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        length_pos = torch.arange(0, max_len, dtype=torch.float, device=device).unsqueeze(1)
 
         # Get every other raw position for the hidden dimension (hidden_dim/2,)
-        hidden_pos = torch.arange(0, hidden_dim, 2).float()
+        hidden_pos = torch.arange(0, hidden_dim, 2, device=device).float()
         hidden_encoding_values = -math.log(10000.0) / hidden_dim
 
         # Get the encoding for the hidden position (hidden_dim/2,)
@@ -54,10 +55,10 @@ class PositionalEncoder(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         # Get the positional encoding up to the length of the input
-        input_positionsal_encoding = self.positional_encoding[:x.size(0), :]
+        input_positional_encoding = self.positional_encoding[:x.size(0), :]
 
         # Attach the positional encoding to the input
-        x = x + input_positionsal_encoding
+        x = x + input_positional_encoding
 
         # Apply dropout
         return self.dropout(x)

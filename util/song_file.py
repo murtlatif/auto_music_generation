@@ -1,7 +1,8 @@
 import os.path
 
-from config import Config
-from constants import DotenvKeys
+from automusicgen.config import Config
+
+from .constants import DotenvKeys
 
 
 def get_song_file_path(song_file: str):
