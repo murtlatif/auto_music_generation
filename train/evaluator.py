@@ -1,13 +1,14 @@
 import torch
 from automusicgen.data.dataset.music_token import MusicToken
+from automusicgen.data.tokenize import midi_tokenizer
 from automusicgen.model.transformer.transformer_baseline import \
     TransformerModel
 from automusicgen.util.device import get_device
-from torch import Tensor, nn, no_grad
+from torch import LongTensor, Tensor, nn, no_grad
 from torch.utils.data.dataloader import DataLoader
 
 
-def _greedy_decode(model: TransformerModel, source: Tensor, source_mask: Tensor, max_length: int, start_token: int):
+def _greedy_decode(model: TransformerModel, source: Tensor, source_mask: Tensor, max_length: int, start_token: int, end_token: int):
     DEVICE = get_device()
     
     source = source.to(DEVICE)
@@ -30,7 +31,7 @@ def _greedy_decode(model: TransformerModel, source: Tensor, source_mask: Tensor,
             torch.ones(1, 1).type_as(source.data).fill_(next_note)
         ], dim=0)
 
-        if next_note == MusicToken.EndOfSequence.value:
+        if next_note == end_token:
             break
 
     return output
@@ -51,13 +52,37 @@ def generate_music(model: TransformerModel, input_song: str) -> list[MusicToken]
         model,
         source,
         source_mask,
-        max_length=num_tokens+5,
-        start_token=MusicToken.BeginningOfSequence.value
+        max_length=num_tokens+10,
+        start_token=MusicToken.BeginningOfSequence.value,
+        end_token=MusicToken.EndOfSequence.value,
     ).flatten().tolist()
 
     output_music_tokens = [MusicToken(target_token) for target_token in target_tokens]
     return output_music_tokens
 
+def generate_music_midi(model: TransformerModel, input_song: list[int], sos_token: int, eos_token: int):
+    model.eval()
+
+    input_song_tensor = LongTensor(input_song).to(device=get_device())
+
+    # Format the music tokens as (S, N) where S is sequence length, N is batch size
+    source = input_song_tensor.view(-1, 1)
+
+    num_tokens = source.shape[0]
+    source_mask = torch.zeros(num_tokens, num_tokens).type(torch.bool)
+
+    target_tokens = _greedy_decode(
+        model,
+        source,
+        source_mask,
+        max_length=num_tokens+500,
+        start_token=sos_token,
+        end_token=eos_token,
+    ).flatten().tolist()
+
+    output_music_tokens = target_tokens
+
+    return output_music_tokens
 
 
 def evaluate_note_sequence(model: TransformerModel, input_notes: str):

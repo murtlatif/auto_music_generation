@@ -18,4 +18,4 @@ venv/
 *.exe
 
 # Model State Files
-model/cache/*.pt
+model/cache/*

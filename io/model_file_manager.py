@@ -4,7 +4,9 @@ import torch
 from automusicgen.config import Config
 from torch import nn
 
-from .constants import DotenvKeys
+from automusicgen.parameter_search.testing_parameters import TransformerParameters
+
+from ..util.constants import DotenvKeys
 
 
 def load_model(filename: str, model: nn.Module):
@@ -48,3 +50,23 @@ def save_model_state(filename: str, model_state):
         save_path = f'{default_dir}/{save_path}'
 
     torch.save(model_state, save_path)
+
+def save_model_parameters(filename: str, parameters: TransformerParameters):
+    save_path = filename
+    if not os.path.dirname(save_path):
+        default_dir = Config.env[DotenvKeys.MODEL_DEFAULT_DIR]
+        save_path = f'{default_dir}/{save_path}'
+
+    torch.save(parameters, save_path)
+
+def load_model_parameters(filename: str) -> TransformerParameters:
+    load_path = filename
+
+    if not os.path.isfile(load_path):
+        default_dir = Config.env[DotenvKeys.MODEL_DEFAULT_DIR]
+        load_path = f'{default_dir}/{load_path}'
+
+    assert os.path.isfile(load_path), f'Failed to find path {load_path}'
+
+    parameters = torch.load(load_path)
+    return parameters

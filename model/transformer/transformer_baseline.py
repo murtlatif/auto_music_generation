@@ -1,6 +1,7 @@
 
 import torch
 from automusicgen.data.dataset.music_token import MusicToken
+from automusicgen.data.tokenize.midi_tokenizer import MIDI_PAD_TOKEN
 from automusicgen.util.device import get_device
 from torch import Tensor, nn
 
@@ -42,7 +43,7 @@ class TransformerModel(nn.Module):
     ):
         super().__init__()
 
-        self.PAD_TOKEN = MusicToken.get_pad_token_value()
+        self.PAD_TOKEN = MIDI_PAD_TOKEN
         self.DEVICE = device
 
         if output_dict_size is None:

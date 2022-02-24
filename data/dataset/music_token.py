@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from automusicgen.util.device import get_device
-from torch import IntTensor
+from torch import LongTensor
 
 
 class MusicToken(Enum):
@@ -58,8 +58,8 @@ class MusicToken(Enum):
         return [music_token.value for music_token in music_tokens]
 
     @staticmethod
-    def to_tensor(music_tokens: list[MusicToken]) -> IntTensor:
-        return IntTensor(MusicToken.as_values(music_tokens)).to(device=get_device())
+    def to_tensor(music_tokens: list[MusicToken]) -> LongTensor:
+        return LongTensor(MusicToken.as_values(music_tokens)).to(device=get_device())
 
     @staticmethod
     def get_pad_token_value() -> int:

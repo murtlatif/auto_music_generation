@@ -49,9 +49,10 @@ class ArgparseConfig:
 
         parser.add_argument('--name', type=str, help='Name of model; used when saving model data')
         parser.add_argument('-l', '--load-model', dest='load_model_path', help='File path to a .pt model')
+        parser.add_argument('-p', '--load-params', dest='load_param_path', help='File path to a parameters file')
         parser.add_argument('-t', '--train', action='store_true', help='Use this flag to train the model')
         parser.add_argument('-e', '--epochs', type=int, default=10, help='The number of epochs to train the model')
-        parser.add_argument('-b', '--batch-size', type=int, default=32, help='Batch size for training')
+        parser.add_argument('-b', '--batch-size', type=int, default=64, help='Batch size for training')
         parser.add_argument('-lr', '--learning-rate', type=float, default=1e-5, help='Learning rate for training')
         parser.add_argument('-s', '--save-mode', type=SaveMode, choices=list(SaveMode), help='Save the model when training')
         parser.add_argument('-a', '--save-on-acc', action='store_true', dest='save_on_accuracy',

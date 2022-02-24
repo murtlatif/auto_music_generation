@@ -3,11 +3,15 @@ from timeit import default_timer as timer
 import torch
 from automusicgen.config import Config
 from automusicgen.data.dataset.music_token import MusicToken
+from automusicgen.io.model_file_manager import (save_model,
+                                                save_model_parameters,
+                                                save_model_state)
 from automusicgen.model.transformer.transformer_baseline import \
     TransformerModel
+from automusicgen.parameter_search.testing_parameters import \
+    TransformerParameters
 from automusicgen.util.constants import SaveMode
 from automusicgen.util.device import get_device
-from automusicgen.util.model_file_manager import save_model, save_model_state
 from automusicgen.util.string_formatter import format_percentage
 from torch import nn, optim
 from torch.nn.modules.loss import _Loss
@@ -19,11 +23,7 @@ def train_transformer(
     train_loader: DataLoader,
     optimizer: optim.Optimizer,
     criterion: _Loss,
-    epochs: int = 10,
-    print_status: bool = True,
-    save_mode: SaveMode = SaveMode.SaveBest,
-    save_on_accuracy: bool = False,
-    model_name: str = None,
+    parameters: TransformerParameters = None,
 ):
     """
     Trains a transformer model for multiple epochs.
@@ -41,18 +41,22 @@ def train_transformer(
     Returns:
         tuple[list[float], list[float], str]: Train loss per epoch, and the best model file name if one was saved.
     """
-    model_name = model_name or Config.args.name or 'Unnamed'
+    model_name = parameters.model_name
+    epochs = parameters.epochs
+    print_status = parameters.print_status
+    save_mode = parameters.save_mode
+    save_on_accuracy = parameters.save_on_accuracy
     
     train_loss_per_epoch = []
     train_accuracy_per_epoch = []
     best_epoch = -1
     best_train_loss = None
     best_train_accuracy = None
-    best_model_name = ''
-    
+    best_model_file_name = ''
+    best_model_param_file_name = ''
     best_model_state = None
 
-    def save_current_model(by_state: bool = False):
+    def save_current_model(by_state: bool = False, save_parameters: bool = True):
         if (not best_train_accuracy) and (not best_train_loss):
             model_tag = f'untrained'
         else:
@@ -66,7 +70,11 @@ def train_transformer(
         else:
             save_model(model_save_file, model)
 
-        return model_save_file
+        parameters_save_file = f'tfmr_{model_name}_{model_device}_{model_tag}.params'
+        if save_parameters:
+            save_model_parameters(parameters_save_file, parameters)
+
+        return model_save_file, parameters_save_file
 
     try:
         for epoch in range(epochs):
@@ -108,7 +116,7 @@ def train_transformer(
 
             if is_new_best:
                 if save_mode == SaveMode.SaveEachNewBest:
-                    best_model_name = save_current_model()
+                    best_model_file_name, best_model_param_file_name = save_current_model()
 
                 elif save_mode == SaveMode.SaveBest:
                     best_model_state = model.state_dict()
@@ -128,14 +136,14 @@ def train_transformer(
         raise
     finally:
         if save_mode == SaveMode.SaveBest:
-            best_model_name = save_current_model(by_state=True)
-            print(f'Best model saved on epoch {best_epoch} as: {best_model_name}')
+            best_model_file_name, best_model_param_file_name = save_current_model(by_state=True)
+            print(f'Best model saved on epoch {best_epoch} as: {best_model_file_name}')
 
         elif save_mode == SaveMode.SaveLast:
-            best_model_name = save_current_model()
-            print(f'Last model saved as: {best_model_name}')
+            best_model_file_name, best_model_param_file_name = save_current_model()
+            print(f'Last model saved as: {best_model_file_name}')
 
-    return train_loss_per_epoch, train_accuracy_per_epoch, best_model_name
+    return train_loss_per_epoch, train_accuracy_per_epoch, best_model_file_name, best_model_param_file_name
 
 
 def train_transformer_single_epoch(
@@ -143,6 +151,7 @@ def train_transformer_single_epoch(
     criterion: nn.CrossEntropyLoss,
     optimizer: optim.Optimizer,
     loader: DataLoader,
+    print_progress_interval: int = 100,
 ) -> float:
     """
     Trains a TransformerModel with one epoch.
@@ -165,9 +174,12 @@ def train_transformer_single_epoch(
 
     device = get_device()
 
+    total_num_batches = len(loader)
+
     for batch_idx, (source, target) in enumerate(loader):
         optimizer.zero_grad()
 
+        # Expect source to be of shape (N, S) and target to be of shape (N, T)
         source = source.to(device=device)
         target = target.to(device=device)
 
@@ -200,9 +212,17 @@ def train_transformer_single_epoch(
         # Do not count padded indices
         correct_notes_excluding_pads = torch.where(output_notes != transformer.PAD_TOKEN, correct_notes, False)
 
-        epoch_correct += correct_notes_excluding_pads.sum().item()
-        epoch_predictions += len(flattened_target_output[flattened_target_output != transformer.PAD_TOKEN])
+        num_correct_notes = correct_notes_excluding_pads.sum().item()
+        num_predictions = len(flattened_target_output[flattened_target_output != transformer.PAD_TOKEN])
+        epoch_correct += num_correct_notes
+        epoch_predictions += num_predictions
 
+        if Config.args.verbose > 0 and batch_idx % print_progress_interval == 0:
+            status_text = f'\tBatch #{batch_idx+1:3}/{total_num_batches} ({format_percentage((batch_idx+1)/total_num_batches)}) | ' \
+                          f'Batch Loss: {loss.item():.4f} | Batch Correct: {num_correct_notes}/{num_predictions} ({format_percentage((num_correct_notes/num_predictions))})| ' \
+                          f'Loss So Far: {epoch_total_loss:.4f} | Correct So Far: {epoch_correct}/{epoch_predictions} ({format_percentage((num_correct_notes/num_predictions))}) | '
+
+            print(status_text)
     epoch_loss = epoch_total_loss / len(loader)
     epoch_accuracy = epoch_correct / epoch_predictions
 

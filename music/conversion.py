@@ -10,6 +10,10 @@ def to_stream(music_tokens: list[MusicToken]) -> stream.Part:
 
     return converter.parse(f'tinynotation: 4/4 {music_tiny_notation}')
 
+
+def to_stream_from_file(midi_file: str) -> stream.Part:
+    return converter.parse(midi_file)
+
 def music_token_list_to_tiny_notation(music_tokens: list[MusicToken]) -> str:
     return ' '.join([
         music_token_to_tiny_notation(music_token) 
