@@ -11,10 +11,10 @@ def load_midi_file(midi_file_path: str) -> MidiFile:
 pitch_range = range(21, 109)
 beat_res = {(0, 4): 8, (4, 12): 4}
 nb_velocities = 32
-additional_tokens = {'Chord': True, 'Rest': True, 'Tempo': True, 'Program': False, 'TimeSignature': False,
-                     'rest_range': (2, 8),  # (half, 8 beats)
-                     'nb_tempos': 32,  # nb of tempo bins
-                     'tempo_range': (80, 280)}  # (min, max)
+additional_tokens = {'Chord': True, 'Rest': False, 'Tempo': True, 'Program': False, 'TimeSignature': False,
+                     'rest_range': (2, 4),  # (half, 8 beats)
+                     'nb_tempos': 64,  # nb of tempo bins
+                     'tempo_range': (70, 210)}  # (min, max)
 
 # Creates the tokenizer and loads a MIDI
 tokenizer = REMI(pitch_range, beat_res, nb_velocities, additional_tokens, sos_eos_tokens=True)

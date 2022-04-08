@@ -19,12 +19,12 @@ class PositionalEncoder(nn.Module):
     Args:
         hidden_dim ([type]): The number of hidden dimensions to encode into each input element
         dropout (float, optional): The dropout rate. Defaults to 0.1.
-        max_len (int, optional): The maximum length of an input. Defaults to 100.
+        max_len (int, optional): The maximum length of an input. Defaults to 2000.
     """
 
-    def __init__(self, hidden_dim: int, dropout: float = 0.1, max_len: int = 100, device: str = get_device()):
+    def __init__(self, hidden_dim: int, dropout: float = 0.1, max_len: int = 70, device: str = get_device()):
         super().__init__()
-
+        
         self.dropout = nn.Dropout(p=dropout)
 
         # The positional encoding is of shape (max_len, hidden_dim)
@@ -62,3 +62,6 @@ class PositionalEncoder(nn.Module):
 
         # Apply dropout
         return self.dropout(x)
+
+    def max_bandwidth(self):
+        return self.positional_encoding.shape[0]

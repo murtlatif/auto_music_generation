@@ -183,7 +183,16 @@ def train_transformer_single_epoch(
         source = source.to(device=device)
         target = target.to(device=device)
 
+        # Cut the source and target to be at most the amount the positional encoder can take
+        max_bandwidth = transformer.positional_encoder.max_bandwidth()
+
+        if source.size(1) > max_bandwidth:
+            source = source[:, -max_bandwidth:]
+
         target_input = target[:, :-1]
+        if target_input.size(1) > max_bandwidth:
+            target_input = target[:, -max_bandwidth:]
+
         source_mask, target_mask, source_padding_mask, target_padding_mask = transformer.create_mask(source, target_input)
 
         output = transformer(source, target_input, source_mask, target_mask, source_padding_mask, target_padding_mask)

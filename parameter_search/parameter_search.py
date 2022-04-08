@@ -13,7 +13,7 @@ from automusicgen.model.transformer.transformer_baseline import \
     TransformerModel
 from automusicgen.music.midi import write_midi
 from automusicgen.parameter_search.search_experiments import (
-    SWEET_CHILD_O_MINE_EXPERIMENT, TETRIS_EXPERIMENT, TETRIS_FULL_EXPERIMENT, UNDER_THE_SEA_EXPERIMENT)
+    BACH_EXPERIMENT, CHOPIN_EXPERIMENT, CLASSICAL_EXPERIMENT, EXPERIMENT_OF_DOOM, GRAVITY_FALLS_EXPERIMENT, MARIO_EXPERIMENT, SWEET_CHILD_O_MINE_EXPERIMENT, TCHAIKOVSKY_EXPERIMENT, TETRIS_EXPERIMENT, TETRIS_FULL_EXPERIMENT, UNDER_THE_SEA_EXPERIMENT)
 from automusicgen.parameter_search.testing_parameters import \
     TransformerParameters
 from automusicgen.train.evaluator import generate_music, generate_music_midi
@@ -126,8 +126,9 @@ def search_parameters(parameter_list: list[TransformerParameters], experiment_na
 
 if __name__ == '__main__':
     # results = search_parameters(TEST_EXPERIMENT, 'TestExperiment')
-    # results = search_parameters(GRAVITY_FALLS_ALL_PARTITIONS_EXPERIMENT, 'GravityFallsAllPartitionsExperiment')
-    results = search_parameters(SWEET_CHILD_O_MINE_EXPERIMENT, 'SweetChildOMineExperiment')
+    # results = search_parameters(SWEET_CHILD_O_MINE_EXPERIMENT, 'SweetChildOMineExperiment')
+    # results = search_parameters(BACH_EXPERIMENT, 'BachExperiment')
+    results = search_parameters(MARIO_EXPERIMENT, 'MarioExperiment')
 
     print('-' * 10, 'Testing Results', '-' * 10)
     for parameters, result in results:

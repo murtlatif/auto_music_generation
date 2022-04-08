@@ -69,3 +69,13 @@ def get_all_substrings(string: str, max_size: Optional[int] = None) -> list[str]
             all_substrings.append(string[start_idx:end_idx])
 
     return all_substrings
+
+def get_all_substrings_of_size(string: str, size: int) -> list[str]:
+    all_substrings = []
+
+    for start_idx in range(len(string)-size+1):
+        end_idx = start_idx + size
+        all_substrings.append(string[start_idx:end_idx])
+        
+    return all_substrings
+

@@ -106,7 +106,7 @@ class TransformerModel(nn.Module):
         # Encode the position into the sequence
         encoded_source_sequence = self.positional_encoder(embedded_source_sequence)
         encoded_target_sequence = self.positional_encoder(embedded_target_sequence)
-
+        
         # Get the output sequence and permute from (S, N, E) to (N, S, E)
         embedded_output = self.transformer(
             src=encoded_source_sequence,
